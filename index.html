@@ -31,6 +31,8 @@
     .tag.candidate { background:#edf4fb; color:var(--muted); }
     .sentid { color:var(--blue); font-weight:800; font-size:12px; }
     .review { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:15px 0; margin:18px 0; }
+    .review.inline { border:0; padding:0; margin:8px 0 16px; }
+    .review.four { grid-template-columns:repeat(3,1fr); }
     label.check { display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; border:1px solid var(--border); border-radius:8px; background:#fff; font-weight:800; cursor:pointer; }
     label.check input { width:20px; height:20px; }
     textarea { width:100%; min-height:64px; border:1px solid var(--border); border-radius:8px; padding:10px; font-family:inherit; }
@@ -53,11 +55,13 @@
   <div class="stats">
     <div class="pill">Done <span id="done">0</span>/<span id="total">0</span></div>
     <div class="pill">Triple OK <span id="tripleOk" class="correct">0</span></div>
-    <div class="pill">Context OK <span id="contextOk" class="correct">0</span></div>
+    <div class="pill">Species OK <span id="speciesOk" class="correct">0</span></div>
+    <div class="pill">Anatomy OK <span id="anatomyOk" class="correct">0</span></div>
+    <div class="pill">Condition OK <span id="conditionOk" class="correct">0</span></div>
   </div>
 </header>
 <main>
-  <div class="subtle">Generated: 2026-10-13 22:57:47<br>verified_dir=pilot_head20/step3_runs/gemma27b_local_v3_step2v3_contextProv_test5/verified | triples_dir=pilot_head20/step2_runs/5.4nano_schemaSlim_32k_step2v3_contextProv_test5/triples | summaries_dir=pilot_head20/step1_runs/5.4nano_schemaSlim_32k_v3prov_test5/step1_summaries | json_dir=PMC_fulltext | source summaries shown as evidence sentences only | candidate_correct_records=126 | sample_size=100 | seed=12345</div>
+  <div class="subtle">Generated: 2026-10-13 23:08:06<br>verified_dir=pilot_head20/step3_runs/gemma27b_local_v3_step2v3_contextProv_test5/verified | triples_dir=pilot_head20/step2_runs/5.4nano_schemaSlim_32k_step2v3_contextProv_test5/triples | summaries_dir=pilot_head20/step1_runs/5.4nano_schemaSlim_32k_v3prov_test5/step1_summaries | json_dir=PMC_fulltext | source summaries shown as evidence sentences only | candidate_correct_records=126 | sample_size=100 | seed=12345</div>
   <div class="nav">
     <button id="prevTop">Previous</button><button id="nextTop">Next</button>
     <label><b>Go to</b> <input id="goto" type="number" min="1" value="1"></label>
@@ -76,7 +80,7 @@ function loadLabels(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY)
 function saveLabels(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(labels)); }
 function esc(v){ return String(v ?? "").replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 function keyOf(row){ return row.pmcid + "|" + row.triple_id + "|" + row.triple; }
-function labelFor(row){ return labels[keyOf(row)] || {triple:false, context:false, notes:""}; }
+function labelFor(row){ return Object.assign({triple:false, species:false, anatomy:false, condition:false, notes:""}, labels[keyOf(row)] || {}); }
 function setLabel(row, patch){ labels[keyOf(row)] = Object.assign(labelFor(row), patch); saveLabels(); updateStats(); }
 function join(arr){ return Array.isArray(arr) ? arr.join("; ") : String(arr || ""); }
 function asSet(arr){ return new Set(Array.isArray(arr) ? arr.map(String) : []); }
@@ -125,10 +129,18 @@ function render(){
       <div class="box"><h3>Predicate</h3>${esc(row.predicate)}</div>
       <div class="box"><h3>Object</h3>${esc(row.object)}<br><span class="subtle">${esc(row.object_type)}</span></div>
     </div>
+    <div class="review inline">
+      <label class="check"><input id="tripleCheck" type="checkbox" ${lab.triple ? "checked" : ""}> Triple correct</label>
+    </div>
     <div class="grid">
       <div class="box"><h3>Species context</h3>${esc(row.context_species)}</div>
       <div class="box"><h3>Anatomy context</h3>${esc(row.context_anatomical_structures)}</div>
       <div class="box"><h3>Condition context</h3>${esc(row.context_experimental_conditions)}</div>
+    </div>
+    <div class="review inline">
+      <label class="check"><input id="speciesCheck" type="checkbox" ${lab.species ? "checked" : ""}> Species context correct</label>
+      <label class="check"><input id="anatomyCheck" type="checkbox" ${lab.anatomy ? "checked" : ""}> Anatomy context correct</label>
+      <label class="check"><input id="conditionCheck" type="checkbox" ${lab.condition ? "checked" : ""}> Condition context correct</label>
     </div>
     <div class="grid">
       <div class="box"><h3>Step3 verdicts</h3>
@@ -154,17 +166,15 @@ function render(){
     <details><summary>All Step2 candidate + Step3 checked triple evidence sentences</summary>${sentList(row.evidence_sentences, row)}</details>
     <details><summary>All source-summary/context/condition-effect provenance sentences</summary>${sentList(row.summary_sentences, row)}</details>
     <details><summary>Evidence passages</summary>${(row.evidence_passages || []).map(p => `<div class="sent"><div class="sentid">${esc(p.passage_id)} | ${esc(p.section)}</div>${esc(p.text)}</div>`).join("") || '<div class="subtle">None.</div>'}</details>
-    <div class="review">
-      <label class="check"><input id="tripleCheck" type="checkbox" ${lab.triple ? "checked" : ""}> Triple valid</label>
-      <label class="check"><input id="contextCheck" type="checkbox" ${lab.context ? "checked" : ""}> Context valid</label>
-    </div>
     <label><b>Notes</b><textarea id="notes">${esc(lab.notes || "")}</textarea></label>
     <div class="actions">
       <div><button id="prev">Previous</button> <button id="next">Next</button></div>
       <div><button class="danger" id="clear">Clear Current</button> <button class="danger" id="reset">Reset All</button> <button class="primary" id="download">Download TSV</button></div>
     </div>`;
   document.getElementById("tripleCheck").onchange = e => setLabel(row, {triple:e.target.checked});
-  document.getElementById("contextCheck").onchange = e => setLabel(row, {context:e.target.checked});
+  document.getElementById("speciesCheck").onchange = e => setLabel(row, {species:e.target.checked});
+  document.getElementById("anatomyCheck").onchange = e => setLabel(row, {anatomy:e.target.checked});
+  document.getElementById("conditionCheck").onchange = e => setLabel(row, {condition:e.target.checked});
   document.getElementById("notes").oninput = e => setLabel(row, {notes:e.target.value});
   document.getElementById("prev").onclick = prev; document.getElementById("next").onclick = next;
   document.getElementById("clear").onclick = () => { delete labels[keyOf(row)]; saveLabels(); render(); updateStats(); };
@@ -174,28 +184,39 @@ function render(){
 }
 
 function updateStats(){
-  let done=0, triple=0, context=0;
-  for(const row of DATA){ const lab=labelFor(row); if(lab.triple || lab.context || lab.notes) done++; if(lab.triple) triple++; if(lab.context) context++; }
+  let done=0, triple=0, species=0, anatomy=0, condition=0;
+  for(const row of DATA){
+    const lab=labelFor(row);
+    if(lab.triple || lab.species || lab.anatomy || lab.condition || lab.notes) done++;
+    if(lab.triple) triple++;
+    if(lab.species) species++;
+    if(lab.anatomy) anatomy++;
+    if(lab.condition) condition++;
+  }
   document.getElementById("total").textContent = DATA.length;
   document.getElementById("done").textContent = done;
   document.getElementById("tripleOk").textContent = triple;
-  document.getElementById("contextOk").textContent = context;
+  document.getElementById("speciesOk").textContent = species;
+  document.getElementById("anatomyOk").textContent = anatomy;
+  document.getElementById("conditionOk").textContent = condition;
 }
 function prev(){ current = Math.max(0, current - 1); render(); }
 function next(){ current = Math.min(DATA.length - 1, current + 1); render(); }
 document.getElementById("prevTop").onclick = prev; document.getElementById("nextTop").onclick = next; document.getElementById("downloadTop").onclick = downloadTSV;
 document.getElementById("goto").onchange = e => { const v = Math.max(1, Math.min(DATA.length, Number(e.target.value || 1))); current = v - 1; render(); };
-document.addEventListener("keydown", e => { if(e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return; if(e.key === "ArrowLeft") prev(); if(e.key === "ArrowRight") next(); if(e.key === "t") document.getElementById("tripleCheck")?.click(); if(e.key === "c") document.getElementById("contextCheck")?.click(); });
+document.addEventListener("keydown", e => { if(e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return; if(e.key === "ArrowLeft") prev(); if(e.key === "ArrowRight") next(); if(e.key === "t") document.getElementById("tripleCheck")?.click(); if(e.key === "s") document.getElementById("speciesCheck")?.click(); if(e.key === "a") document.getElementById("anatomyCheck")?.click(); if(e.key === "c") document.getElementById("conditionCheck")?.click(); });
 
 function downloadTSV(){
-  const cols = ["pmcid","triple_id","triple","subject","subject_type","predicate","object","object_type","context_species","context_anatomical_structures","context_experimental_conditions","llm_triple_verdict","llm_context_verdict","llm_confidence","step2_candidate_evidence_sentence_ids","step3_checked_evidence_sentence_ids","step3_checked_context_sentence_ids","manual_triple_valid","manual_context_valid","manual_notes"];
+  const cols = ["pmcid","triple_id","triple","subject","subject_type","predicate","object","object_type","context_species","context_anatomical_structures","context_experimental_conditions","llm_triple_verdict","llm_context_verdict","llm_confidence","step2_candidate_evidence_sentence_ids","step3_checked_evidence_sentence_ids","step3_checked_context_sentence_ids","manual_triple_valid","manual_species_context_valid","manual_anatomy_context_valid","manual_condition_context_valid","manual_notes"];
   const lines = [cols.join("\t")];
   for(const row of DATA){
     const lab = labelFor(row);
     const vals = cols.map(c => {
       let v = "";
       if(c === "manual_triple_valid") v = lab.triple ? "YES" : "";
-      else if(c === "manual_context_valid") v = lab.context ? "YES" : "";
+      else if(c === "manual_species_context_valid") v = lab.species ? "YES" : "";
+      else if(c === "manual_anatomy_context_valid") v = lab.anatomy ? "YES" : "";
+      else if(c === "manual_condition_context_valid") v = lab.condition ? "YES" : "";
       else if(c === "manual_notes") v = lab.notes || "";
       else if(Array.isArray(row[c])) v = join(row[c]);
       else v = row[c] ?? "";
